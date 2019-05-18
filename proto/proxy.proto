@@ -1,0 +1,41 @@
+
+syntax = "proto3";
+
+// Pure Python gRPC Reverse Proxy
+package ppgrp;
+
+// request for a new session for a certain service
+//  - service_name: name of the service required; more than one service
+//    can be registered to be serviced by the proxy
+message ServiceSessionRequest {
+  string service_name = 1;
+}
+
+// information about an endpoint
+//  - port: port number
+message EndpointInfo {
+  int32 port = 1;
+}
+
+// Information about the session:
+//  - session_info: a session id that must always be used to communicate with the server;
+//    unique within the service
+//  - service_name: ..redundant
+message SessionInfo {
+  int32 session_id = 1;
+  string service_name = 2;
+  EndpointInfo endpoint_info = 3;
+}
+
+// response with info abount a new session
+//  - session_info: information about the opened session
+//  - port: the port that the servicing endpoint will be opened on
+message ServiceSessionResponse {
+  SessionInfo session_info = 2;
+}
+
+service SessionDispatcher {
+  rpc Request (ServiceSessionRequest) returns (ServiceSessionResponse) {}
+  //rpc ReleaseEndpoint (SessionInfo) returns (ResponseStatus) {}
+}
+
