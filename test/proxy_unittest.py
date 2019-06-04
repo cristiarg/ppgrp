@@ -1,10 +1,15 @@
 """proxy service unit test
 """
 
-import sys
+from os import path as ospath
+from sys import path as syspath
+
 import uuid
 import unittest
 import grpc
+
+_UPPER_MODULE_PATH = ospath.abspath(ospath.dirname(ospath.dirname(__file__)))
+syspath.append(_UPPER_MODULE_PATH)
 
 from proxy import SessionId, Session, SessionDispatcherServiceHelper
 from proxy import PROXY_MAIN_PORT, PROXY_BASE_PORT, STARTING_GLOBAL_UNIQUE_ID
@@ -22,12 +27,14 @@ class SessionIdTest(unittest.TestCase):
         self.assertEqual(sess_id.get_next(), STARTING_GLOBAL_UNIQUE_ID + 1)
         self.assertEqual(sess_id.get_next(), STARTING_GLOBAL_UNIQUE_ID + 2)
 
+
 class SessionTest(unittest.TestCase):
     def test_01(self):
         sess_id = SessionId()
         curr_session_id = sess_id.get_next()
         sess = Session(curr_session_id, PROXY_BASE_PORT + 1, "dummy_service_name")
         self.assertEqual(sess.unique_id, curr_session_id)
+
 
 class SessionDispatcherServiceHelperTest(unittest.TestCase):
     @classmethod
@@ -107,6 +114,7 @@ class SessionDispatcherServiceHelperTest(unittest.TestCase):
         self.assertTrue(helper.delete_session(sess5.unique_id))
         self.assertFalse(helper.delete_session(sess5.unique_id))
 
+
 class SessionDispatcherServiceHelperTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -154,6 +162,7 @@ class SessionDispatcherServiceHelperTest(unittest.TestCase):
         finally:
             session_dispatcher = None
             insec_channel = None
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=0)
