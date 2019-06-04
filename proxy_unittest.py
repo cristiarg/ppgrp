@@ -2,10 +2,17 @@
 """
 
 import sys
+import uuid
 import unittest
+import grpc
 
 from proxy import SessionId, Session, SessionDispatcherServiceHelper
-from proxy import PROXY_BASE_PORT, STARTING_GLOBAL_UNIQUE_ID
+from proxy import PROXY_MAIN_PORT, PROXY_BASE_PORT, STARTING_GLOBAL_UNIQUE_ID
+
+import proxy_pb2
+import proxy_pb2_grpc
+
+_PROXY_SERVER_ADDRESS = 'localhost'
 
 
 class SessionIdTest(unittest.TestCase):
@@ -36,6 +43,10 @@ class SessionDispatcherServiceHelperTest(unittest.TestCase):
     def test_01(self):
         helper = SessionDispatcherServiceHelper()
 
+        # # request a session for a nonexistent service
+        # sess_non_existent = helper.request_new_session(str(uuid.uuid4()))
+        # self.assertIsNone(sess_non_existent)
+
         # request a session
         sess1 = helper.request_new_session(self.service_name)
         self.assertEqual(sess1.unique_id, STARTING_GLOBAL_UNIQUE_ID)
@@ -60,6 +71,7 @@ class SessionDispatcherServiceHelperTest(unittest.TestCase):
 
         self.assertTrue(helper.delete_session(sess2.unique_id))
         self.assertIsNone(helper.get_session(sess2.unique_id))
+        self.assertFalse(helper.delete_session(sess2.unique_id))
         del sess2
 
         # request yet another session - the 'middle' session
@@ -78,6 +90,7 @@ class SessionDispatcherServiceHelperTest(unittest.TestCase):
         # delete a 'middle' session
         self.assertTrue(helper.delete_session(sess3.unique_id))
         self.assertIsNone(helper.get_session(sess3.unique_id))
+        self.assertFalse(helper.delete_session(sess3.unique_id))
 
         # requesting a new session should result in recycling an older session port
         sess5 = helper.request_new_session(self.service_name)
@@ -85,6 +98,62 @@ class SessionDispatcherServiceHelperTest(unittest.TestCase):
         self.assertEqual(sess5.port, sess3_port_saved_for_later)
         self.assertEqual(sess5.service_name, self.service_name)
 
+        self.assertTrue(helper.delete_session(sess1.unique_id))
+        self.assertFalse(helper.delete_session(sess1.unique_id))
+
+        self.assertTrue(helper.delete_session(sess4.unique_id))
+        self.assertFalse(helper.delete_session(sess4.unique_id))
+
+        self.assertTrue(helper.delete_session(sess5.unique_id))
+        self.assertFalse(helper.delete_session(sess5.unique_id))
+
+class SessionDispatcherServiceHelperTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.service_name = 'dummy_service_name'
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_01(self):
+        # helper = SessionDispatcherServiceHelper()
+        try:
+            insec_channel = grpc.insecure_channel("{}:{}".format(
+                _PROXY_SERVER_ADDRESS, PROXY_MAIN_PORT))
+            self.assertIsNotNone(insec_channel)
+
+            session_dispatcher = proxy_pb2_grpc.SessionDispatcherStub(insec_channel)
+            self.assertIsNotNone(session_dispatcher)
+
+            resp_sess1 = session_dispatcher.Request(
+                    proxy_pb2.RequestSessionRequest(
+                        service_name="dummy_serv_name"))
+            self.assertIsNotNone(resp_sess1)
+            print(resp_sess1)
+
+            resp_sess2 = session_dispatcher.Request(
+                    proxy_pb2.RequestSessionRequest(
+                        service_name="dummy_serv_name"))
+            self.assertIsNotNone(resp_sess2)
+            print(resp_sess2)
+
+            resp_sess3 = session_dispatcher.Request(
+                    proxy_pb2.RequestSessionRequest(
+                        service_name="dummy_service_name"))
+            self.assertIsNotNone(resp_sess3)
+            print(resp_sess3)
+
+            resp_release_sess2 = session_dispatcher.Release(
+                    proxy_pb2.ReleaseSessionRequest(
+                        session_id=resp_sess2.session_info.session_id))
+            self.assertIsNotNone(resp_release_sess2)
+            
+        finally:
+            session_dispatcher = None
+            insec_channel = None
 
 if __name__ == "__main__":
     unittest.main(verbosity=0)
